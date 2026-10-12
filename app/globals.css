@@ -1,0 +1,842 @@
+@import 'tailwindcss';
+
+/* Tokens lifted from the supplied landing page design. */
+@theme {
+  --color-ink: #0e1a16;
+  --color-ink-deep: #0a1310;
+  --color-paper: #f5f8f6;
+  --color-mint: #e4efe9;
+  --color-brand: #174b3a;
+  --color-coral: #e8826d;
+  --color-body: #3d4d46;
+  --color-dim: #d9e0dc;
+  --color-hairline: #dbe5e0;
+}
+
+@theme inline {
+  --font-sans: var(--font-instrument), system-ui, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-instrument), sans-serif;
+}
+
+@layer base {
+  html,
+  body {
+    /* Every section paints its own opaque background, so this colour is never
+       seen while scrolling. It is only reached during overscroll, and both ends
+       of the page are dark (header bg-ink, footer bg-ink-deep). Touch rubber-band
+       reveals the body background rather than the html canvas, so both must be
+       dark or pull-to-refresh flashes near-white at the ends. */
+    background-color: var(--color-ink-deep);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-instrument), system-ui, sans-serif;
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-bricolage), var(--font-instrument), sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  ::selection {
+    background-color: #e4efe9;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+/*
+ * Hero load sequence. Pure CSS on purpose: it paints with the first frame, needs
+ * no bundle, and the headline can never be left invisible by a failed script.
+ */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise-in 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise {
+    animation: none;
+  }
+}
+
+/*
+ * "How it works" install walkthrough. Plain CSS rather than Tailwind utilities
+ * on purpose: these rules draw a set of browser and OS chrome mocks that are
+ * painted as fixed-size pictures inside the stage. They are not layout for
+ * document content, they are illustration, and utility classes would make them
+ * unreadable. Colours come from the @theme tokens above.
+ */
+.how-section {
+  background: var(--color-mint);
+  padding: clamp(56px, 8vw, 104px) 0 clamp(72px, 9vw, 132px);
+}
+
+/* The desktop and mobile trees are both rendered; CSS shows one. That keeps
+   the server render deterministic and `display: none` already drops the hidden
+   tree out of the accessibility tree and the tab order. */
+.guide--mobile { display: none; }
+@media (max-width: 1023.98px) {
+  .guide--desktop { display: none; }
+  .guide--mobile { display: block; }
+}
+
+/* --- desktop: step list beside the pinned stage ---------------- */
+.isteps-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(0, 1.06fr);
+  gap: clamp(32px, 5vw, 76px);
+  align-items: center;
+  margin-top: clamp(40px, 5.5vw, 76px);
+}
+
+.isteps-wrap { position: relative; }
+.isteps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.isteps__rail {
+  position: absolute;
+  /* left is static: it centres the rail on the 32px circles, (32/2) - (2/2).
+     top and bottom are NOT set in CSS — they are measured from the first and
+     last circle centres in how-it-works.tsx, because each step's height depends
+     on how many lines its description wraps to. A fixed `bottom` overshoots the
+     last circle by however tall that step's text is. */
+  left: 15px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--color-hairline);
+  overflow: hidden;
+  z-index: 0;
+}
+.isteps__fill {
+  /* scaleY only, never height */
+  position: absolute;
+  inset: 0;
+  background: var(--color-brand);
+  transform-origin: top center;
+  transform: scaleY(0);
+}
+.istep {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 13px 0;
+}
+/* Dimming is applied to the text, never to `.istep` itself. Opacity on the
+   parent would also fade the number circle, and a translucent circle lets the
+   rail show through the digits. */
+.istep__text { opacity: 0.35; }
+.istep.is-on .istep__text { opacity: 1; }
+
+.istep__num {
+  flex: none;
+  position: relative;
+  /* above the rail; the rail's own geometry is set from these centres in JS */
+  z-index: 1;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+  /* always fully opaque, so the rail is never visible inside the circle */
+  background: var(--color-mint);
+  border: 1.5px solid color-mix(in srgb, var(--color-brand) 38%, var(--color-mint));
+  color: color-mix(in srgb, var(--color-brand) 38%, var(--color-mint));
+}
+.istep.is-on .istep__num {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+  color: var(--color-paper);
+}
+.istep__title {
+  margin: 4px 0 0;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.018em;
+  line-height: 1.2;
+}
+.istep__body {
+  margin: 5px 0 0;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--color-body);
+  max-width: 34ch;
+}
+
+/* --- the stage ------------------------------------------------ */
+.istage {
+  position: relative;
+  height: clamp(380px, 54vh, 520px);
+  background: var(--color-ink);
+  border: 1px solid rgba(201, 221, 211, 0.16);
+  border-radius: 16px;
+  box-shadow: 0 28px 64px -30px rgba(10, 19, 16, 0.62), 0 2px 10px rgba(10, 19, 16, 0.2);
+  overflow: hidden;
+}
+.istage__inner { position: absolute; inset: 0; }
+.scene {
+  position: absolute;
+  inset: 0;
+  padding: clamp(16px, 2.2vw, 28px);
+  opacity: 0;
+  visibility: hidden;
+  /* the drawn cursor is doing the pointing, so suppress the real one */
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* all six scenes stack, each at its end state, instead of crossfading */
+  .istage { height: auto; }
+  .istage__inner { position: relative; }
+  .scene {
+    position: relative;
+    inset: auto;
+    height: 340px;
+    opacity: 1;
+    visibility: visible;
+    border-bottom: 1px solid rgba(201, 221, 211, 0.12);
+  }
+}
+
+/* --- browser window mock -------------------------------------- */
+.win {
+  position: absolute;
+  inset: clamp(16px, 2.2vw, 28px);
+  background: var(--color-paper);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 44px -24px rgba(0, 0, 0, 0.72);
+}
+.win__bar {
+  flex: none;
+  height: 38px;
+  padding: 0 12px;
+  background: #e8efeb;
+  border-bottom: 1px solid #c9ddd3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dots { display: flex; gap: 5px; flex: none; }
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #c3d2cb;
+}
+.win__tab {
+  flex: none;
+  height: 20px;
+  max-width: 104px;
+  padding: 0 9px;
+  border-radius: 6px;
+  background: var(--color-paper);
+  border: 1px solid #c9ddd3;
+  font-size: 10px;
+  color: var(--color-body);
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.win__url {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--color-paper);
+  border: 1px solid #c9ddd3;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  font-size: 10.5px;
+  color: var(--color-body);
+}
+.win__url > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.win__menu {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  color: var(--color-body);
+  border-radius: 6px;
+}
+.win__body {
+  flex: 1;
+  min-height: 0;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 13px;
+}
+/* placeholder bars standing in for page copy */
+.ph { height: 8px; border-radius: 4px; background: #d9e3de; }
+.ph--t { width: 54%; height: 12px; background: #c6d6ce; }
+.ph--s { width: 78%; }
+.win__meta { font-size: 10.5px; color: var(--color-body); }
+
+.menu {
+  position: absolute;
+  z-index: 4;
+  top: 34px;
+  right: 10px;
+  width: 148px;
+  padding: 5px;
+  background: var(--color-paper);
+  border: 1px solid #c9ddd3;
+  border-radius: 10px;
+  box-shadow: 0 16px 32px -18px rgba(0, 0, 0, 0.6);
+}
+.menu__item {
+  padding: 7px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.caret {
+  display: inline-block;
+  width: 1.5px;
+  height: 11px;
+  margin-left: 1px;
+  background: var(--color-brand);
+  vertical-align: -1px;
+  animation: blink 1.05s steps(1, end) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* --- buttons, chips, cursor ----------------------------------- */
+.btn {
+  position: relative;
+  border: 0;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 10px 17px;
+  white-space: nowrap;
+  cursor: default;
+}
+.btn--coral { background: var(--color-coral); color: var(--color-ink); }
+.btn--ghost {
+  background: var(--color-paper);
+  color: var(--color-brand);
+  border: 1px solid #c9ddd3;
+}
+/* the coral click pulse */
+.ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  border: 2px solid var(--color-coral);
+  transform-origin: center;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 25px;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: var(--color-paper);
+  border: 1px solid #c9ddd3;
+  font-size: 10.5px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+.chip__ic {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--color-coral);
+  flex: none;
+}
+.chip__ic--doc { background: #9dbcae; }
+
+/* the downloads tray drops from the stage's top-right corner and hugs its
+   chip, so it never reads as an empty slab */
+.tray {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  padding: 11px 14px;
+  background: var(--color-paper);
+  border-left: 1px solid #c9ddd3;
+  border-bottom: 1px solid #c9ddd3;
+  border-bottom-left-radius: 12px;
+  box-shadow: 0 18px 34px -20px rgba(0, 0, 0, 0.7);
+}
+
+.cur {
+  position: absolute;
+  left: 15%;
+  top: 62%;
+  z-index: 9;
+  pointer-events: none;
+  filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.5));
+  will-change: transform;
+}
+
+/* --- scene 2: zip / folder ------------------------------------ */
+.zipscene {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+/* both stacks share one centred slot, so the label never collides with the
+   chips; the zip stack fades out exactly as the folder fades in */
+.zipslot {
+  position: relative;
+  width: 100%;
+  height: 172px;
+  display: grid;
+  place-items: center;
+}
+.zipslot > .stack { position: absolute; }
+.stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 11px;
+}
+.zi { display: block; will-change: transform; }
+.zip-h {
+  fill: #dceae3;
+  stroke: var(--color-brand);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+.ziplabel { font-size: 12px; color: var(--color-body); }
+.zips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+}
+
+/* --- scenes 4 and 5: chrome://extensions ---------------------- */
+.extpage {
+  position: absolute;
+  inset: clamp(16px, 2.2vw, 28px);
+  background: var(--color-paper);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 44px -24px rgba(0, 0, 0, 0.72);
+}
+.extpage__top {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 15px;
+  border-bottom: 1px solid #c9ddd3;
+}
+.extpage__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 13px;
+}
+.extlogo {
+  width: 19px;
+  height: 19px;
+  border-radius: 6px;
+  background: var(--color-coral);
+  flex: none;
+}
+.devrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--color-body);
+}
+.toggle {
+  display: block;
+  width: 38px;
+  height: 21px;
+  border-radius: 999px;
+  background: #cddad4;
+  position: relative;
+  flex: none;
+}
+.toggle.is-on { background: var(--color-brand); }
+.toggle__knob {
+  position: absolute;
+  top: 2.5px;
+  left: 2.5px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--color-paper);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  will-change: transform;
+}
+.toggle.is-on .toggle__knob { transform: translateX(17px); }
+
+.extpage__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-mint);
+}
+.extbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 15px;
+  background: var(--color-paper);
+  border-bottom: 1px solid #c9ddd3;
+  will-change: transform;
+}
+.extempty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 11.5px;
+  color: var(--color-body);
+}
+.extcard {
+  position: absolute;
+  top: 66px;
+  left: 15px;
+  right: 15px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 13px 14px;
+  background: var(--color-paper);
+  border: 1px solid #c9ddd3;
+  border-radius: 12px;
+  box-shadow: 0 12px 24px -18px rgba(0, 0, 0, 0.5);
+}
+.extcard__name { font-weight: 700; font-size: 13px; }
+.extcard__id { font-size: 10px; color: var(--color-body); margin-top: 2px; }
+.extcard__sp { flex: 1; }
+
+/* the folder picker modal */
+.bkd {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: rgba(10, 19, 16, 0.66);
+}
+.pickerwrap {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.picker {
+  width: min(84%, 350px);
+  background: var(--color-paper);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 34px 64px -24px rgba(0, 0, 0, 0.82);
+  will-change: transform;
+}
+.picker__title {
+  padding: 12px 15px;
+  font-weight: 700;
+  font-size: 12.5px;
+  border-bottom: 1px solid #c9ddd3;
+}
+.picker__path {
+  padding: 8px 15px;
+  font-size: 10.5px;
+  color: var(--color-body);
+  background: #eef3f0;
+}
+.picker__rows {
+  padding: 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.picker__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  font-size: 11.5px;
+  color: var(--color-ink);
+}
+.picker__row--dim { color: var(--color-body); }
+.picker__ic {
+  width: 15px;
+  height: 12px;
+  border-radius: 3px;
+  background: #c3d6cc;
+  flex: none;
+}
+.picker__row.is-hit {
+  background: var(--color-coral);
+  border-color: var(--color-coral);
+  color: var(--color-ink);
+}
+.picker__row.is-hit .picker__ic { background: rgba(14, 26, 22, 0.35); }
+.picker__actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 11px 13px;
+  border-top: 1px solid #c9ddd3;
+  background: #eef3f0;
+}
+
+/* --- scene 6: YouTube ----------------------------------------- */
+.yt {
+  position: absolute;
+  inset: clamp(16px, 2.2vw, 28px);
+  background: var(--color-paper);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 44px -24px rgba(0, 0, 0, 0.72);
+}
+.yt__bar {
+  flex: none;
+  height: 40px;
+  padding: 0 14px;
+  background: #e8efeb;
+  border-bottom: 1px solid #c9ddd3;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.yt__search {
+  flex: 1;
+  max-width: 210px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--color-paper);
+  border: 1px solid #c9ddd3;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 10.5px;
+  color: var(--color-body);
+}
+.yt__sp { flex: 1; }
+.yt__ext {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.yt__grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 10px;
+  padding: 12px;
+}
+.vcard {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-height: 0;
+  will-change: opacity;
+}
+.vthumb {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.vring {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  border: 2px solid var(--color-brand);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.vtitle { height: 5px; border-radius: 3px; background: #c9d6d0; flex: none; }
+.vmeta {
+  height: 5px;
+  width: 52%;
+  border-radius: 3px;
+  background: #e0e8e4;
+  flex: none;
+}
+/* grayscale is a discrete class swap, never a tweened filter, so the dim
+   keeps motion on transform/opacity only */
+.vcard.is-dim { filter: grayscale(1); }
+
+.popup {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 7;
+  width: min(66%, 244px);
+  padding: 13px;
+  background: var(--color-paper);
+  border: 1px solid #c9ddd3;
+  border-radius: 12px;
+  box-shadow: 0 24px 46px -18px rgba(0, 0, 0, 0.78);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  will-change: transform, opacity;
+}
+/* tighter than the base gap: the popup carries two label/field pairs and the
+   default 8px opened visible holes between each label and its input */
+.popup > .popup__label { margin-top: -1px; }
+.popup__title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+  font-size: 12px;
+}
+.popup__label {
+  font-size: 9.5px;
+  color: var(--color-body);
+  margin-bottom: -3px;
+}
+.popup__field {
+  height: 29px;
+  border-radius: 8px;
+  border: 1px solid var(--color-brand);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  padding: 0 9px;
+  font-size: 11px;
+  color: var(--color-ink);
+  white-space: nowrap;
+  overflow: hidden;
+}
+/* the key field carries its own trailing check, so the text must not push it
+   out — hence min-width: 0 on the text span and margin-left: auto on the check */
+.popup__field--key > span:first-child { min-width: 0; overflow: hidden; }
+.popup__check {
+  margin-left: auto;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  background: var(--color-brand);
+  color: var(--color-paper);
+}
+.popup__hint { font-size: 9.5px; color: var(--color-body); }
+
+.donewrap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 25px;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.donepill {
+  background: var(--color-coral);
+  color: var(--color-ink);
+  font-weight: 700;
+  font-size: 12.5px;
+  padding: 10px 19px;
+  border-radius: 999px;
+  box-shadow: 0 16px 32px -14px rgba(232, 130, 109, 0.5);
+  will-change: transform, opacity;
+}
+
+/* --- mobile: steps stack, each carries its own scene ----------- */
+.imsteps {
+  list-style: none;
+  margin: clamp(32px, 7vw, 48px) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+.imstep__head {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.imstep__head .istep__title { margin: 3px 0 0; font-size: 18px; }
+.imsteps .istage { height: clamp(264px, 68vw, 330px); }
+@media (prefers-reduced-motion: reduce) {
+  .imsteps .istage { height: clamp(264px, 68vw, 330px); }
+  .imsteps .scene { height: 100%; border-bottom: 0; }
+}
